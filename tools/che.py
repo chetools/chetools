@@ -44,9 +44,9 @@ extract_coeff_props={'Vapor Pressure' : 'Pvap',
 
 extract_poly_coeff_props={'Polynomial Ideal Gas Heat Capacity (cal/mol-K)':'polyCpIG'}
 
-base_url = 'https://raw.githubusercontent.com/profteachkids/CHE2064/master/data/'
+base_url = 'https://raw.githubusercontent.com/profteachkids/chetools/master/data/'
 
-BIP_file = 'https://raw.githubusercontent.com/profteachkids/CHE2064/master/data/BinaryNRTL.txt'
+BIP_file = 'https://raw.githubusercontent.com/profteachkids/chetools/master/data/BinaryNRTL.txt'
 
 class Props():
     def __init__(self,comps, get_NRTL=True, base_url=base_url, extract_single_props=extract_single_props,
