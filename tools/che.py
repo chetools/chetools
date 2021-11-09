@@ -115,19 +115,18 @@ class Props():
             comps_string = '|'.join(self.ID)
             id_name_pat = re.compile(r'^\s+(\d+)[ ]+(' + comps_string +')[ ]+[A-Za-z]',re.MULTILINE)
             id_str = id_name_pat.findall(text)
+
             #maintain order of components
             id_dict = {v:k for k,v in id_str}
-
             # list of comp IDs with BIP data
             id_str = [id_dict.get(id, None) for id in self.ID]
-            id_str = list(filter(None, id_str))
             comb_strs = combinations(id_str,2)
             comb_indices = combinations(range(self.N_comps),2)
             self.NRTL_A, self.NRTL_B, self.NRTL_C, self.NRTL_D, self.NRTL_alpha = np.zeros((5, self.N_comps,self.N_comps))
             start=re.search(r'Dij\s+Dji',text).span()[0]
 
-            for comb_str, comb_index in zip(comb_strs, comb_indices):
-                comb_str = '|'.join(comb_str)
+            for comb_id, comb_index in zip(comb_strs, comb_indices):
+                comb_str = '|'.join(comb_id)
                 comb_values_pat = re.compile(r'^[ ]+(' + comb_str +
                                              r')[ ]+(?:' + comb_str + r')(.*)$', re.MULTILINE)
 
@@ -136,7 +135,7 @@ class Props():
                 if match is not None:
                     first_id, values = match.groups(1)
                     #if matched order is flipped, also flip indices
-                    if first_id != comb_index[0]:
+                    if first_id != comb_id[0]:
                         comb_index = (comb_index[1],comb_index[0])
                     bij, bji, alpha, aij, aji, cij, cji, dij, dji  = [float(val) for val in values.split()]
                     np.add.at(self.NRTL_B, comb_index, bij)
@@ -212,26 +211,27 @@ class Props():
         T=jnp.squeeze(T)
         return(self.rhoLA / jnp.power(self.rhoLB, 1+ jnp.power((1.-T/self.rhoLC),self.rhoLD)) *self.Mw)
 
-    @partial(jax.jit, static_argnums=(0,))
+    # @partial(jax.jit, static_argnums=(0,))
     def NRTL_gamma(self, x, T):
-        x=jnp.atleast_1d(x)
+        x=x.reshape(-1,1)
         tau = (self.NRTL_A + self.NRTL_B / T + self.NRTL_C * jnp.log(T) +
                self.NRTL_D * T)
         G = jnp.exp(-self.NRTL_alpha * tau)
 
-        xG=jnp.dot(x,G)
-        xtauGdivxG = jnp.dot(x,tau * G) / xG
-        lngamma = xtauGdivxG + jnp.dot((x / xG), (G * (tau - xtauGdivxG)).T)
+        xG=x.T @ G
+        xtauGdivxG = (x.T@ (tau*G)/ xG)
+        lngamma = xtauGdivxG.flatten() +  (((G*(tau - xtauGdivxG))/xG) @x).flatten()
         return jnp.exp(lngamma)
 
     @partial(jax.jit, static_argnums=(0,))
     def Gex(self, x,T):
+        x=x.reshape(-1,1)
         tau = (self.NRTL_A + self.NRTL_B / T + self.NRTL_C * jnp.log(T) +
                self.NRTL_D * T)
         G = jnp.exp(-self.NRTL_alpha * tau)
-        xG=jnp.dot(x,G)
-        xtauGdivxG = jnp.dot(x,(tau * G)) / xG
-        return jnp.dot(x, xtauGdivxG)
+        xG= x.T @ G
+        xtauGdivxG = x.T @ (tau*G) / xG
+        return (xtauGdivxG @ x)[0,0]
 
     @partial(jax.jit, static_argnums=(0,))
     def NRTL_gamma2(self,x, T):
