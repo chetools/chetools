@@ -13,3 +13,5 @@ print(g2)
 print(x*g2*p.Pvap(T), x*P)
 g1 = p.NRTL_gamma(x,T)
 print(g1)
+
+p = che.Props(['Oxygen', 'Nitrogen', 'CarbonDioxide'])

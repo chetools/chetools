@@ -120,8 +120,10 @@ class Props():
             id_dict = {v:k for k,v in id_str}
             # list of comp IDs with BIP data
             id_str = [id_dict.get(id, None) for id in self.ID]
+            id_str_indices=list(filter(lambda x: False if x[0] is None else True, zip(id_str,range(len(id_str)))))
+            id_str,indices=list(zip(*id_str_indices))
             comb_strs = combinations(id_str,2)
-            comb_indices = combinations(range(self.N_comps),2)
+            comb_indices = combinations(indices,2)
             self.NRTL_A, self.NRTL_B, self.NRTL_C, self.NRTL_D, self.NRTL_alpha = np.zeros((5, self.N_comps,self.N_comps))
             start=re.search(r'Dij\s+Dji',text).span()[0]
 
