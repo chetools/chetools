@@ -108,6 +108,7 @@ class Props():
         self.HfIG = self.HfIG/1000.
         self.HfL = self.HfIG - self.Hvap(298.15)
         self.GfIG = self.GfIG/1000.
+        self.HvapNB=self.HvapNB/1000.
 
         if (self.N_comps > 1) and get_NRTL:
             text = requests.get(BIP_file).text
