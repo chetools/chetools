@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 import jax
+import jax.tree_util as tu
 from dotmap import DotMap
 import pandas as pd
 from scipy.optimize import minimize, NonlinearConstraint
@@ -21,21 +22,21 @@ class VSC():
         self.vdf = None
         self.sdf = None
         self.cdf = None
-        self.v_id, self.nan_var = make_nan_variables(self.c)
+        self.nan_var = make_nan_variables(self.c)
         self.nan_var_flat, *_ = flatten(self.nan_var)
         self.update_idx = jnp.where(jnp.isnan(self.nan_var_flat))
         self.x = self.c_flat[self.update_idx]
-        self.v_flat = jnp.nan * self.c_flat
         # self.test=self.model(self.xtoc(self.x))
 
     def xtoc(self,x):
         c = self.c_flat.at[self.update_idx].set(x)
         return DotMap(unflatten(c, self.idx, self.shapes, self.tree))
 
-    def xtov(self,x):
-        v_c = self.v_flat.at[self.update_idx].set(x)
+    def xtovs(self,x):
+        v_c = self.c_flat.at[self.update_idx].set(x)
         v_tree= unflatten(v_c, self.idx, self.shapes, self.tree)
-        return DotMap(remove_nan(v_tree))
+        v,s = splitvs(self.c,v_tree)
+        return v,s
 
     def transform(self, model):
         def model_f(x):
@@ -95,37 +96,49 @@ class VSC():
             print(res)
             print(self.model(DotMap(self.xtoc(res.x))))
         self.x = res.x
-        self.v = self.xtov(self.x)
-        self.generate_reports(res.x)
+        self.v, self.s = self.xtovs(self.x)
+        self.generate_reports()
 
-    def generate_reports(self,x):
-        self.vdf=todf(self.xtov(x))
-        c=self.xtoc(x)
+    def generate_reports(self):
+        self.vdf=todf(self.v)
+        c=self.xtoc(self.x)
         res = self.model(c)
         if type(res) is tuple:
             self.r = res[1]
             self.rdf= todf(self.r).fillna('')
         self.cdf=todf(c)
-        self.sdf=self.cdf.loc[list(set(self.cdf.index) - set(self.vdf.index))]
+        self.sdf=todf(self.s)
         return
 
 def make_nan_variables(d):
     d = d.toDict() if isinstance(d,DotMap) else d
     dd = deepcopy(d)
-    v_list = []
     for (k,v), (dk, dv) in zip(dd.items(), d.items()):
         if isinstance(v,dict):
             make_nan_variables(v)
         elif isinstance(v,Comp):
             dd[k]=Comp(jnp.nan*jnp.ones_like(v.x))
-            v_list.append(id(dv))
         elif isinstance(v,Range):
             dd[k]=Range(jnp.nan, 0.,1.)
-            v_list.append(id(dv))
         elif isinstance(v,RangeArray):
             dd[k]=RangeArray(jnp.nan * jnp.ones_like(v.x), 0.,1.)
-            v_list.append(id(dv))
-    return v_list, dd
+    return dd
+
+def splitvs(d,d2):
+    resv={}
+    resp={}
+    for (dk,dv), (d2k,d2v) in zip(d.items(), d2.items()):
+        flat, tree= tu.tree_flatten(dv, lambda _: True)
+        all_leaves=tu.all_leaves(flat)
+        is_unk = isinstance(flat[0],Unk)
+        if all_leaves or is_unk:
+            if is_unk:
+                resv[dk]=d2v
+            else:
+                resp[dk]=d2v
+        else:
+            resv[dk],resp[dk]=splitvs(dv,d2v)
+    return resv, resp
 
 
 
@@ -157,43 +170,6 @@ def tuple_keys(orig, flat={}, path=(), sizes=__sizes):
         for count,v in enumerate(orig):
             process(v,count)
     return flat
-
-def remove_nan(orig):
-    t = type(orig)
-    clean=t()
-    if t is dict:
-        for k,v in orig.items():
-            if type(v) in (tuple,list,dict):
-                cleaned = remove_nan(v)
-                if len(cleaned) > 0:
-                    clean[k]=remove_nan(v)
-            elif not(jnp.all(jnp.isnan(jnp.atleast_1d(v)))):
-                clean[k]=v
-    elif t in (tuple,list):
-        clean=[]
-        for v in orig:
-            if type(v) in (tuple,list,dict):
-                cleaned = remove_nan(v)
-                if len(cleaned) > 0:
-                    clean.append(remove_nan(v))
-            elif not(jnp.all(jnp.isnan(jnp.atleast_1d(v)))):
-                clean.append(v)
-
-    return clean
-
-def nan_like(x, f=None):
-    x = x.toDict() if isinstance(x,DotMap) else x
-    values, treedef = jax.tree_flatten(x)
-    def none(val):
-        if isinstance(val,jnp.ndarray):
-            return jnp.nan*jnp.empty_like(val)
-        return float('nan')
-
-    if f is None:
-        val_none = map(none,values)
-    else:
-        val_none = map(f, values)
-    return jax.tree_unflatten(treedef,val_none)
 
 def flatten(pytree):
     vals, tree = jax.tree_flatten(pytree)
@@ -227,7 +203,11 @@ def merge(a, b, all = True):
         elif all:
             a[key] = b_value
 
-class Comp():
+class Unk():
+    def __init__(self):
+        pass
+
+class Comp(Unk):
     def __init__(self,x):
         self.x=jnp.asarray(x).reshape(-1)
         if self.x.size<2:
@@ -250,7 +230,7 @@ class Comp():
 
 jax.tree_util.register_pytree_node(Comp, Comp.flatten, Comp.unflatten)
 
-class RangeArray():
+class RangeArray(Unk):
     def __init__(self,x, lo, hi):
         self.x=x
         self.lo = lo
@@ -274,7 +254,7 @@ class RangeArray():
 jax.tree_util.register_pytree_node(RangeArray, RangeArray.flatten, RangeArray.unflatten)
 
 
-class Range():
+class Range(Unk):
     def __init__(self,x, lo, hi):
         self.x=x
         self.lo = lo
