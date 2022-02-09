@@ -216,7 +216,7 @@ class Props():
 
     # @partial(jax.jit, static_argnums=(0,))
     def NRTL_gamma(self, x, T):
-        x=x.reshape(-1,1)
+        x=jnp.asarray(x).reshape(-1)
         tau = (self.NRTL_A + self.NRTL_B / T + self.NRTL_C * jnp.log(T) +
                self.NRTL_D * T)
         G = jnp.exp(-self.NRTL_alpha * tau)
@@ -228,7 +228,7 @@ class Props():
 
     @partial(jax.jit, static_argnums=(0,))
     def Gex(self, x,T):
-        x=x.reshape(-1,1)
+        x=jnp.asarray(x).reshape(-1)
         tau = (self.NRTL_A + self.NRTL_B / T + self.NRTL_C * jnp.log(T) +
                self.NRTL_D * T)
         G = jnp.exp(-self.NRTL_alpha * tau)
