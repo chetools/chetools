@@ -97,6 +97,7 @@ class VSC():
             print(self.model(DotMap(self.xtoc(res.x))))
         self.x = res.x
         self.v, self.s = self.xtovs(self.x)
+        print(self.v)
         self.vdf = todf(self.v)
         self.cdf = todf(self.c)
         self.sdf = todf(self.s)
@@ -162,6 +163,7 @@ def todf(d):
             df=df.append(df2)
         except TypeError:
             d={('Scalar','1'):v}
+            print(d,k)
             df2 = pd.DataFrame(d,index=[k])
             df=df.append(df2)
     df=df.fillna("")
