@@ -96,11 +96,17 @@ class VSC():
             print(res)
             print(self.model(DotMap(self.xtoc(res.x))))
         self.x = res.x
+
         self.v, self.s = self.xtovs(self.x)
-        print(self.v)
         self.vdf = todf(self.v)
-        self.cdf = todf(self.c)
         self.sdf = todf(self.s)
+
+        c=self.xtoc(self.x)
+        res = self.model(c)
+        if type(res) is tuple:
+            self.r = res[1]
+            self.rdf= todf(self.r)
+        self.cdf=todf(c)
 
 
 def make_nan_variables(d):
