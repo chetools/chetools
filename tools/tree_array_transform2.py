@@ -97,18 +97,10 @@ class VSC():
             print(self.model(DotMap(self.xtoc(res.x))))
         self.x = res.x
         self.v, self.s = self.xtovs(self.x)
-        self.generate_reports()
+        self.vdf = todf(self.v)
+        self.cdf = todf(self.c)
+        self.sdf = todf(self.s)
 
-    def generate_reports(self):
-        self.vdf=todf(self.v)
-        c=self.xtoc(self.x)
-        res = self.model(c)
-        if type(res) is tuple:
-            self.r = res[1]
-            self.rdf= todf(self.r).fillna('')
-        self.cdf=todf(c)
-        self.sdf=todf(self.s)
-        return
 
 def make_nan_variables(d):
     d = d.toDict() if isinstance(d,DotMap) else d
@@ -141,35 +133,39 @@ def splitvs(d,d2):
     return resv, resp
 
 
+def flatten_dict(d, pre='',flat={}, sep='.'):
+    pre=pre+sep if not(pre=='') else pre
+    if isinstance(d,dict):
+        for k,v in d.items():
+            if not(type(v) in (tuple,list,dict)):
+                flat[pre+f'{k}']=v
+            else:
+                flatten(v,pre+f'{k}')
+    elif type(d) in (tuple,list):
+        for count,item in enumerate(d):
+            if not(type(item) in (tuple,list,dict)):
+                flat[pre+f'{count}']=item
+            else:
+                flatten(item,pre+f'{count}')
+    return flat 
 
-def todf(tree):
-    res={}
-    tuple_keys(tree, res)
-    return pd.DataFrame.from_dict(res).transpose().fillna('')
-
-__sizes=[[(f'vector{i}', f'{j}') for j in range(1,i+1)] for i in range(1,100)]
-# __sizes[0]=('','Value')
-def tuple_keys(orig, flat={}, path=(), sizes=__sizes):
-
-    def process(v, label):
-        if type(v) in (tuple,list,dict, DotMap):
-            tuple_keys(v, flat, tuple(path) + (label,))
-        else:
-            v = v.val if isinstance(v, jax.interpreters.ad.JVPTracer) else v
-            v=jnp.atleast_1d(v)
-            if not(jnp.all(jnp.isnan(v))):
-                size = v.size
-                flat[tuple(path) + (label,)]={sizes[size-1][i]:value for i,value in enumerate(v)}
-
-    t = type(orig)
-    if t in (dict, DotMap):
-        orig = orig.toDict() if isinstance(orig,DotMap) else orig
-        for k,v in orig.items():
-            process(v,k)
-    elif t in (tuple,list):
-        for count,v in enumerate(orig):
-            process(v,count)
-    return flat
+def todf(d):
+    flat = flatten_dict(d)
+    df=pd.DataFrame()
+    for k,v in flat.items():
+        try:
+            if isinstance(v,Unk):
+                v=v.x
+            li = list(v)
+            d = {(f'Vector{len(li)}',idx+1):[v] for idx,v in enumerate(li)}
+            df2 = pd.DataFrame(d, index=[k])
+            df=df.append(df2)
+        except TypeError:
+            d={('Scalar','1'):v}
+            df2 = pd.DataFrame(d,index=[k])
+            df=df.append(df2)
+    df=df.fillna("")
+    return df
 
 def flatten(pytree):
     vals, tree = jax.tree_flatten(pytree)
@@ -182,26 +178,6 @@ def flatten(pytree):
 def unflatten(x, idx, shapes, tree):
     return jax.tree_unflatten(tree, [(lambda item, shape: jnp.squeeze(item) if shape==(1,) else item.reshape(shape))(item,shape)
                                      for item,shape in zip(jnp.split(x,idx[:-1]), shapes)])
-
-def replace_not_nan(a,b):
-    a = a.toDict() if isinstance(a,DotMap) else a
-    b = b.toDict() if isinstance(b,DotMap) else b
-    a_flat, idx, shapes, tree = flatten(a)
-    b_flat, *_ = flatten(b)
-    c_flat = jnp.where(jnp.logical_not(jnp.isnan(b_flat)), b_flat, a_flat)
-    return DotMap(unflatten(c_flat, idx, shapes, tree))
-
-def merge(a, b, all = True):
-    a = a.toDict() if isinstance(a,DotMap) else a
-    b = b.toDict() if isinstance(b,DotMap) else a
-    for key in b:
-        b_value = b[key]
-        if key not in a:
-            a[key] = b_value
-        elif isinstance(a[key], dict) and isinstance(b_value, dict):
-            merge(a[key], b_value, all)
-        elif all:
-            a[key] = b_value
 
 class Unk():
     def __init__(self):
