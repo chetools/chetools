@@ -162,7 +162,7 @@ def todf(d):
             df2 = pd.DataFrame(d, index=[k])
             df=df.append(df2)
         except TypeError:
-            d={('Scalar','1'):v}
+            d={('Scalar','1'):[v]}
             print(d,k)
             df2 = pd.DataFrame(d,index=[k])
             df=df.append(df2)
