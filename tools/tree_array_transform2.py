@@ -102,11 +102,12 @@ class VSC():
         self.sdf = todf(self.s)
 
         c=self.xtoc(self.x)
+        self.cdf=todf(c)
         res = self.model(c)
         if type(res) is tuple:
             self.r = res[1]
             self.rdf= todf(self.r)
-        self.cdf=todf(c)
+
 
 
 def make_nan_variables(d):
@@ -169,7 +170,6 @@ def todf(d):
             df=df.append(df2)
         except TypeError:
             d={('Scalar','1'):[v]}
-            print(d,k)
             df2 = pd.DataFrame(d,index=[k])
             df=df.append(df2)
     df=df.fillna("")
