@@ -140,22 +140,27 @@ def splitvs(d,d2):
             resv[dk],resp[dk]=splitvs(dv,d2v)
     return resv, resp
 
+def flatten_dict(d, sep='.', pre=''):
+    flat={}
+    stack = [(d,pre)]
+    current = d
+    while len(stack)>0:
+        if isinstance(current,dict):
+            for k,v in current.items():
+                if not(type(v) in (tuple,list,dict)):
+                    flat[pre+f'{k}']=v
+                else:
+                    stack.append((v,pre+f'{k}'))
+        elif type(current) in (tuple,list):
+            for count,item in enumerate(current):
+                if not(type(item) in (tuple,list,dict)):
+                    flat[pre+f'{count}']=item
+                else:
+                    stack.append((item,pre+f'{count}'))
+        current,pre = stack.pop()
+        pre += sep
+    return flat
 
-def flatten_dict(d, pre='',flat={}, sep='.'):
-    pre=pre+sep if not(pre=='') else pre
-    if isinstance(d,dict):
-        for k,v in d.items():
-            if not(type(v) in (tuple,list,dict)):
-                flat[pre+f'{k}']=v
-            else:
-                flatten(v,pre+f'{k}')
-    elif type(d) in (tuple,list):
-        for count,item in enumerate(d):
-            if not(type(item) in (tuple,list,dict)):
-                flat[pre+f'{count}']=item
-            else:
-                flatten(item,pre+f'{count}')
-    return flat 
 
 def todf(d):
     flat = flatten_dict(d)
