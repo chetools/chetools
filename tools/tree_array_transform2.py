@@ -127,17 +127,18 @@ def make_nan_variables(d):
 def splitvs(d,d2):
     resv={}
     resp={}
-    for (dk,dv), (d2k,d2v) in zip(d.items(), d2.items()):
+
+    for dk,dv in d.items():
         flat, tree= tu.tree_flatten(dv, lambda _: True)
         all_leaves=tu.all_leaves(flat)
         is_unk = isinstance(flat[0],Unk)
         if all_leaves or is_unk:
             if is_unk:
-                resv[dk]=d2v
+                resv[dk]=d2[dk]
             else:
-                resp[dk]=d2v
+                resp[dk]=d2[dk]
         else:
-            resv[dk],resp[dk]=splitvs(dv,d2v)
+            resv[dk],resp[dk]=splitvs(dv,d2[k])
     return resv, resp
 
 def flatten_dict(d, sep='.', pre=''):
