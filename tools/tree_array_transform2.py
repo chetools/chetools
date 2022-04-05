@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import jax
 import jax.tree_util as tu
-import dotmap
+from utils.dotmap import DotMap
 import pandas as pd
 from scipy.optimize import minimize, NonlinearConstraint
 from jax.config import config
@@ -14,9 +14,9 @@ EPS = jnp.finfo(jnp.float64).resolution
 class VSC():
     def __init__(self, c, model):
         self.model = model
-        self.c = c.toDict() if isinstance(c,dotmap.DotMap) else c
+        self.c = c.toDict() if isinstance(c,DotMap) else c
         self.c_flat, self.idx, self.shapes, self.tree = flatten(self.c)
-        self.r = dotmap.DotMap()
+        self.r = DotMap()
         self.rdf = None
         self.v = None
         self.vdf = None
@@ -30,7 +30,7 @@ class VSC():
 
     def xtoc(self,x):
         c = self.c_flat.at[self.update_idx].set(x)
-        return dotmap.DotMap(unflatten(c, self.idx, self.shapes, self.tree))
+        return DotMap(unflatten(c, self.idx, self.shapes, self.tree))
 
     def xtovs(self,x):
         v_c = self.c_flat.at[self.update_idx].set(x)
@@ -40,7 +40,7 @@ class VSC():
 
     def transform(self, model):
         def model_f(x):
-            res = model(dotmap.DotMap(self.xtoc(x)))
+            res = model(DotMap(self.xtoc(x)))
             if isinstance(res,tuple):
                 res=res[0]
             return jnp.squeeze(res)
@@ -48,7 +48,7 @@ class VSC():
 
     def solve(self, jit=True, verbosity=1, sparse=False):
         def constraints(x):
-            res = self.model(dotmap.DotMap(self.xtoc(x)))
+            res = self.model(DotMap(self.xtoc(x)))
             eq = jnp.array([])
             if type(res) is tuple:
                 if type(res[0]) is list:
@@ -94,7 +94,7 @@ class VSC():
 
         if verbosity > 1:
             print(res)
-            print(self.model(dotmap.DotMap(self.xtoc(res.x))))
+            print(self.model(DotMap(self.xtoc(res.x))))
         self.x = res.x
 
         self.v, self.s = self.xtovs(self.x)
@@ -111,7 +111,7 @@ class VSC():
 
 
 def make_nan_variables(d):
-    d = d.toDict() if isinstance(d,dotmap.DotMap) else d
+    d = d.toDict() if isinstance(d,DotMap) else d
     dd = deepcopy(d)
     for (k,v), (dk, dv) in zip(dd.items(), d.items()):
         if isinstance(v,dict):

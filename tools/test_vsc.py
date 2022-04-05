@@ -1,4 +1,4 @@
-from dotmap import DotMap
+from utils.dotmap import DotMap
 import pandas as pd
 import jax
 import jax.numpy as jnp
