@@ -11,7 +11,7 @@ from pprint import pprint
 from sys import version_info
 from inspect import ismethod
 
-class DotMap(MutableMapping, dict):
+class DotMap(dict):
     def __init__(self, *args, **kwargs):
         self._map = dict()
         self._dynamic = kwargs.pop('_dynamic', True)
