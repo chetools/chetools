@@ -155,9 +155,9 @@ class Props():
 
     @partial(jax.jit, static_argnums=(0,))
     def Pvap(self,T):
-        T=jnp.squeeze(T)
-        return jnp.exp(self.PvapA + self.PvapB/T + self.PvapC*jnp.log(T) +
-                       self.PvapD*jnp.power(T,self.PvapE))
+        T=jnp.atleast_1d(jnp.squeeze(T))
+        return jnp.squeeze(jnp.exp(self.PvapA[None,:] + self.PvapB[None,:]/T[:,None] + self.PvapC[None,:]*jnp.log(T[:,None]) +
+                       self.PvapD[None,:]*jnp.power(T[:,None],self.PvapE[None,:])))
 
     @partial(jax.jit, static_argnums=(0,))
     def CpIG(self, T):
@@ -214,8 +214,23 @@ class Props():
         T=jnp.squeeze(T)
         return(self.rhoLA / jnp.power(self.rhoLB, 1+ jnp.power((1.-T/self.rhoLC),self.rhoLD)) *self.Mw)
 
-    # @partial(jax.jit, static_argnums=(0,))
+    @partial(jax.jit, static_argnums=(0,))
     def NRTL_gamma(self, x, T):
+        x=jnp.atleast_2d(x).reshape(-1,self.N_comps)
+        T=jnp.atleast_1d(jnp.squeeze(T))
+        tau = (self.NRTL_A[None,:,:] + self.NRTL_B[None,:,:] / T[:,None,None] + self.NRTL_C[None,:,:] * jnp.log(T[:,None,None]) +
+               self.NRTL_D[None,:,:] * T[:,None,None])
+
+        G = jnp.exp(-self.NRTL_alpha[None,:,:] * tau)
+        xG=x[:,None,:] @ G
+        xtauGdivxG = (x[:,None,:]@ (tau*G)/ xG)
+
+        lngamma = jnp.squeeze(xtauGdivxG) +  jnp.squeeze(((G*(tau - xtauGdivxG))/xG) @x[:,:,None])
+        return jnp.exp(lngamma)
+
+
+    @partial(jax.jit, static_argnums=(0,))
+    def NRTL_gammaOld(self, x, T):
         x=jnp.asarray(x).reshape(-1)
         tau = (self.NRTL_A + self.NRTL_B / T + self.NRTL_C * jnp.log(T) +
                self.NRTL_D * T)
@@ -226,6 +241,8 @@ class Props():
         lngamma = xtauGdivxG.flatten() +  (((G*(tau - xtauGdivxG))/xG) @x).flatten()
         return jnp.exp(lngamma)
 
+
+
     @partial(jax.jit, static_argnums=(0,))
     def Gex(self, x,T):
         x=jnp.asarray(x).reshape(-1)
@@ -234,11 +251,11 @@ class Props():
         G = jnp.exp(-self.NRTL_alpha * tau)
         xG= x.T @ G
         xtauGdivxG = x.T @ (tau*G) / xG
-        return (xtauGdivxG @ x)[0,0]
+        return (xtauGdivxG @ x)
 
     @partial(jax.jit, static_argnums=(0,))
-    def NRTL_gamma2(self,x, T):
-        return jnp.exp(jax.grad(self.Gex,0)(x,T))
+    def NRTL_gamma2Old(self,x, T):
+        return jnp.exp(jax.grad(self.Gex)(x,T))
 
 @jax.jit
 def qtox(q):
