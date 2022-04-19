@@ -155,69 +155,76 @@ class Props():
 
     @partial(jax.jit, static_argnums=(0,))
     def Pvap(self,T):
-        T=jnp.atleast_1d(jnp.squeeze(T))
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
         return jnp.squeeze(jnp.exp(self.PvapA[None,:] + self.PvapB[None,:]/T[:,None] + self.PvapC[None,:]*jnp.log(T[:,None]) +
                        self.PvapD[None,:]*jnp.power(T[:,None],self.PvapE[None,:])))
 
     @partial(jax.jit, static_argnums=(0,))
     def CpIG(self, T):
-        T=jnp.squeeze(T)
-        return (self.CpIGA + self.CpIGB*(self.CpIGC/T/jnp.sinh(self.CpIGC/T))**2 +
-                self.CpIGD*(self.CpIGE/T/jnp.cosh(self.CpIGE/T))**2)
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
+        CpIGCT = self.CpIGC[None,:]/T[:,None]
+        CpIGET = self.CpIGE[None,:]/T[:,None]
+        return jnp.squeeze(self.CpIGA[None,:] + self.CpIGB[None,:]*(CpIGCT/jnp.sinh(CpIGCT))**2 +
+                self.CpIGD[None,:]*(CpIGET/jnp.cosh(CpIGET))**2)
 
     @partial(jax.jit, static_argnums=(0,))
     def deltaHsensIGpoly(self, T):
-        T=jnp.squeeze(T)
-        return T * (self.polyCpIGA + T * (self.polyCpIGB / 2 + T * (self.polyCpIGC / 3 + T * (self.polyCpIGD / 4 + T* (self.polyCpIGE / 5 + T*self.polyCpIGF/6)))))*4.184
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
+        return jnp.squeeze(T[:,None] * (self.polyCpIGA[None,:] + T[:,None]* (self.polyCpIGB[None,:] / 2 + T[:,None] * (self.polyCpIGC[None,:] / 3 + 
+            T[:,None] * (self.polyCpIGD[None,:] / 4 + T[:,None]* (self.polyCpIGE[None,:] / 5 + T[:,None]*self.polyCpIGF[None,:]/6)))))*4.184)
 
     @partial(jax.jit, static_argnums=(0,))
     def HIGpoly(self, nV, T):
-        T=jnp.squeeze(T)
-        return jnp.dot(nV, self.HfIG + self.deltaHsensIGpoly(T) - self.deltaHsensIGpoly(298.15))
+        nV=jnp.atleast_2d(nV).reshape(-1,self.N_comps)
+        return jnp.squeeze(jnp.sum(nV * (self.HfIG + self.deltaHsensIGpoly(T) - self.deltaHsensIGpoly(298.15)),axis=-1))
 
 
     @partial(jax.jit, static_argnums=(0,))
     def deltaHsensIG(self, T):
-        T=jnp.squeeze(T)
-        return (self.CpIGA*T + self.CpIGB * self.CpIGC/jnp.tanh(self.CpIGC/T) - self.CpIGD * self.CpIGE * jnp.tanh(self.CpIGE/T))/1000
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
+        return jnp.squeeze(self.CpIGA[None,:]*T[:,None] + self.CpIGB[None,:] * self.CpIGC[None,:]/jnp.tanh(self.CpIGC[None,:]/T[:,None]) - 
+            self.CpIGD[None,:] * self.CpIGE[None,:] * jnp.tanh(self.CpIGE[None,:]/T[:,None]))/1000
 
     @partial(jax.jit, static_argnums=(0,))
     def HIG(self, nV, T):
-        T=jnp.squeeze(T)
-        return jnp.dot(nV, self.HfIG + self.deltaHsensIG(T) - self.deltaHsensIG(298.15))
+        nV=jnp.atleast_2d(nV).reshape(-1,self.N_comps)
+        return jnp.squeeze(jnp.sum(nV*(self.HfIG + self.deltaHsensIG(T) - self.deltaHsensIG(298.15)),axis=-1))
 
 
     @partial(jax.jit, static_argnums=(0,))
     def Hvap(self, T):
-        T=jnp.squeeze(T)
-        Tr = T/self.Tc
-        return (self.HvapA*jnp.power(1-Tr, self.HvapB + (self.HvapC+(self.HvapD+self.HvapE*Tr)*Tr)*Tr ))/1000.
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
+        Tr = T[:,None]/self.Tc[None,:]
+        return jnp.squeeze(self.HvapA[None,:]*jnp.power(1-Tr[:,None] , self.HvapB[None,:] + (self.HvapC[None,:]
+            +(self.HvapD[None,:]+self.HvapE[None,:]*Tr[:,None] )*Tr[:,None] )*Tr[:,None] ))/1000.
 
 
     @partial(jax.jit, static_argnums=(0,))
     def deltaHsensL(self, T):
-        T=jnp.squeeze(T)
-        return T * (self.CpLA + T * (self.CpLB / 2 + T * (self.CpLC / 3 + T * (self.CpLD / 4 + self.CpLE / 5 * T))))/1000.
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
+        return jnp.squeeze(T[:,None] * (self.CpLA[None,:] + T[:,None] * (self.CpLB[None,:]/ 2 + T[:,None] * (self.CpLC[None,:] / 3 + T[:,None] *
+             (self.CpLD[None,:] / 4 + self.CpLE[None,:] / 5 * T[:,None])))))/1000.
 
     @partial(jax.jit, static_argnums=(0,))
     def Hv(self, nV, T):
-        T=jnp.squeeze(T)
-        return self.Hl(nV, T) + jnp.dot(nV, self.Hvap(T))
+        nV=jnp.atleast_2d(nV).reshape(-1,self.N_comps)
+        return jnp.squeeze(self.Hl(nV, T) + jnp.sum(nV*self.Hvap(T),axis=-1))
 
     @partial(jax.jit, static_argnums=(0,))
     def Hl(self, nL, T):
-        T=jnp.squeeze(T)
-        return jnp.dot(nL, self.HfL + self.deltaHsensL(T) - self.deltaHsensL(298.15))
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
+        nL=jnp.atleast_2d(nL).reshape(-1,self.N_comps)
+        return jnp.squeeze(jnp.sum(nL*(self.HfL + self.deltaHsensL(T) - self.deltaHsensL(298.15)),axis=-1))
 
     @partial(jax.jit, static_argnums=(0,))
     def rhol(self, T):
-        T=jnp.squeeze(T)
-        return(self.rhoLA / jnp.power(self.rhoLB, 1+ jnp.power((1.-T/self.rhoLC),self.rhoLD)) *self.Mw)
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
+        return jnp.squeeze(self.rhoLA[None,:] / jnp.power(self.rhoLB[None,:], 1+ jnp.power((1.-T[:,None]/self.rhoLC[None,:]),self.rhoLD[None,:])) *self.Mw[None,:])
 
     @partial(jax.jit, static_argnums=(0,))
     def NRTL_gamma(self, x, T):
         x=jnp.atleast_2d(x).reshape(-1,self.N_comps)
-        T=jnp.atleast_1d(jnp.squeeze(T))
+        T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
         tau = (self.NRTL_A[None,:,:] + self.NRTL_B[None,:,:] / T[:,None,None] + self.NRTL_C[None,:,:] * jnp.log(T[:,None,None]) +
                self.NRTL_D[None,:,:] * T[:,None,None])
 

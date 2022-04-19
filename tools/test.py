@@ -17,5 +17,15 @@ p=che.Props(['Ethanol','Water'])
 # print(g1)
 
 print('---------')
-T=jnp.array([280, 350,400])
+T1=jnp.array([280, 350,400])
+T2=400
+T3=[350.]
+T4=[350., 400.]
 x=jnp.array([[0.3,0.7],[0.4,0.6],[0.5,0.5]])
+
+n1 = jnp.array([[1.,1.],[2.,3.],[1.,1.]])
+n2=[1.,1.]
+print(p.rhol(T1))
+print(p.rhol(T2))
+print(p.rhol(T3))
+print(p.rhol(T4))
