@@ -96,10 +96,10 @@ class Props():
             props_deque.append(props)
 
         for prop in props_deque[0].keys():
-            if self.N_comps>1:
-                values = np.array([comp[prop] for comp in props_deque])
-            else:
-                values = props_deque[0][prop]
+            # if self.N_comps>1:
+            values = np.array([comp[prop] for comp in props_deque])
+            # else:
+            #     values = props_deque[0][prop]
             setattr(self,prop,values)
 
 
@@ -194,7 +194,7 @@ class Props():
     @partial(jax.jit, static_argnums=(0,))
     def Hvap(self, T):
         T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
-        Tr = T[:,None]/self.Tc[None,:]
+        Tr = T[:,None]/jnp.atleast_1d(self.Tc)[None,:]
         return jnp.squeeze(self.HvapA[None,:]*jnp.power(1-Tr[:,None] , self.HvapB[None,:] + (self.HvapC[None,:]
             +(self.HvapD[None,:]+self.HvapE[None,:]*Tr[:,None] )*Tr[:,None] )*Tr[:,None] ))/1000.
 
@@ -220,7 +220,7 @@ class Props():
     def rhol(self, T):
         T=jnp.atleast_1d(jnp.squeeze(jnp.asarray(T)))
         return jnp.squeeze(self.rhoLA[None,:] / jnp.power(self.rhoLB[None,:], 1+ jnp.power((1.-T[:,None]/self.rhoLC[None,:]),self.rhoLD[None,:])) *self.Mw[None,:])
-
+        
     @partial(jax.jit, static_argnums=(0,))
     def NRTL_gamma(self, x, T):
         x=jnp.atleast_2d(x).reshape(-1,self.N_comps)
