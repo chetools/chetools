@@ -15,23 +15,40 @@ Return
 
 
 
-;specify window
+;specify windows
 ^#!F10::
-WinGet, id, ID, A
-win_minimize := id		
+WinGet, id1, ID, A		
 Return
 
 
 ^#!F9::
 If hidden
 {
-	WinShow, ahk_id %id%
+	WinShow, ahk_id %id1%
 	hidden := False
 } Else {
-	WinHide, ahk_id %id%
+	WinHide, ahk_id %id1%
 	hidden := True
 }
 Return
+
+;specify windows
+^#!F8::
+WinGet, id2, ID, A		
+Return
+
+
+^#!F7::
+If hidden
+{
+	WinShow, ahk_id %id2%
+	hidden := False
+} Else {
+	WinHide, ahk_id %id2%
+	hidden := True
+}
+Return
+
 
 ::nplot::
 (
